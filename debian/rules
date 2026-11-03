@@ -1,0 +1,28 @@
+#!/usr/bin/make -f
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright (c) 2026 The Blueberry Pie OS Authors
+
+include /usr/share/pietoolchain/rules.mk
+
+VERSION := $(firstword $(subst +ds, ,$(DEB_VERSION_UPSTREAM)))
+MAJOR   := $(firstword $(subst ., ,$(VERSION)))
+DYLIB   := $(OBJ)/libxxhash.$(MAJOR).dylib
+
+$(OBJ)/xxhash.o: $(SRCROOT)/xxhash.c $(SRCROOT)/xxhash.h
+	@mkdir -p $(OBJ)
+	$(CC) $(filter-out -Os,$(BASE_CFLAGS)) -O3 -std=c99 -Wall -Wextra -c $< -o $@
+
+$(DYLIB): $(OBJ)/xxhash.o
+	$(CC) $(BASE_LDFLAGS) -dynamiclib -install_name /usr/lib/libxxhash.$(MAJOR).dylib \
+		-compatibility_version $(MAJOR) -current_version $(VERSION) $< -o $@
+
+install: $(DYLIB)
+	install -d $(ROOT)/usr/lib/pkgconfig $(ROOT)/usr/include
+	install -m 755 $(DYLIB) $(ROOT)/usr/lib/
+	ln -sf libxxhash.$(MAJOR).dylib $(ROOT)/usr/lib/libxxhash.dylib
+	install -m 644 $(SRCROOT)/xxhash.h $(SRCROOT)/xxh3.h $(ROOT)/usr/include/
+	sed -e 's|@PREFIX@|/usr|; s|@EXECPREFIX@|$${prefix}|; s|@INCLUDEDIR@|$${prefix}/include|' \
+		-e 's|@LIBDIR@|$${exec_prefix}/lib|; s|@VERSION@|$(VERSION)|' \
+		$(SRCROOT)/libxxhash.pc.in > $(ROOT)/usr/lib/pkgconfig/libxxhash.pc
+
+.PHONY: install
